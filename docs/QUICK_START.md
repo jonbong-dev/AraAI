@@ -1,37 +1,43 @@
-# ⚡ ARA AI - Quick Start Guide (v7.0.0)
+# ARA AI - Quick Start Guide (v8.0.0)
 
-**Revolutionary Training Edition with Separate Stock & Forex Workflows**
+**Revolutionary 2026 Architecture with Advanced Financial AI**
 
-Get up and running with ARA AI in under 5 minutes!
+Get started with ARA AI in under 5 minutes.
 
 ---
 
-## 🎯 Training Performance
+## Training Performance
 
 | Metric | Stock Model | Forex Model |
 |--------|-------------|-------------|
-| **Training Time** | ~2-3 minutes | ~2-3 minutes |
+| **Training Time** | 2-3 minutes | 2-3 minutes |
 | **Accuracy** | >99.9% | >99.5% |
 | **Frequency** | Hourly at :00 | Hourly at :30 |
-| **Parameters** | 4.2M | 4.2M |
+| **Parameters** | 71M | 71M |
 | **Loss** | <0.0004 | <0.0006 |
 
 ---
 
-## 🚀 Installation
+## Installation
 
 ```bash
-# Clone and setup
+# Clone repository
 git clone https://github.com/MeridianAlgo/AraAI.git
 cd AraAI
+
+# Create virtual environment
 python -m venv venv
-source venv/bin/activate  # or venv\Scripts\activate on Windows
+source venv/bin/activate  # Linux/Mac
+# or
+venv\Scripts\activate  # Windows
+
+# Install dependencies
 pip install -r requirements.txt
 ```
 
 ---
 
-## ⚡ Quick Commands
+## Quick Commands
 
 ### Environment Setup
 ```bash
@@ -76,13 +82,13 @@ python scripts/training_dashboard.py
 # Check database
 sqlite3 training.db "SELECT * FROM model_metadata ORDER BY training_date DESC LIMIT 10"
 
-# System test
-python test_system.py
+# Run tests
+python tests/test_revolutionary_model.py
 ```
 
 ---
 
-## 🔧 Code Quality
+## Code Quality
 
 ```bash
 # Install linting tools
@@ -100,7 +106,7 @@ ruff check --fix scripts/ meridianalgo/ ara/
 
 ---
 
-## 📊 Using Models
+## Using Models
 
 ### Stock Predictions
 
@@ -136,7 +142,7 @@ for pred in prediction['predictions']:
 
 ---
 
-## 🔄 GitHub Actions Setup
+## GitHub Actions Setup
 
 ### 1. Enable Workflows
 
@@ -161,7 +167,7 @@ Actions tab → Select workflow → Run workflow
 
 ---
 
-## 📈 Experiment Tracking
+## Experiment Tracking
 
 ### Comet ML Setup
 
@@ -182,7 +188,7 @@ Actions tab → Select workflow → Run workflow
 
 ---
 
-## 🎯 Common Tasks
+## Common Tasks
 
 ### Train with Comet ML Tracking
 
@@ -220,7 +226,7 @@ python scripts/push_elite_models.py \
 
 ---
 
-## 🐛 Troubleshooting
+## Troubleshooting
 
 ### Import Errors
 ```bash
@@ -246,7 +252,7 @@ python scripts/fetch_training_data.py --db-file training.db --asset-type stock -
 
 ---
 
-## 📚 Next Steps
+## Next Steps
 
 1. **Read Full Documentation**: [README.md](README.md)
 2. **View Changelog**: [CHANGELOG.md](CHANGELOG.md)
@@ -255,7 +261,7 @@ python scripts/fetch_training_data.py --db-file training.db --asset-type stock -
 
 ---
 
-## 🆘 Support
+## Support
 
 - **Issues**: [GitHub Issues](https://github.com/MeridianAlgo/AraAI/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/MeridianAlgo/AraAI/discussions)
@@ -263,6 +269,6 @@ python scripts/fetch_training_data.py --db-file training.db --asset-type stock -
 
 ---
 
-**Version**: 7.0.0 - Revolutionary Training Edition  
+**Version**: 8.0.0 - Revolutionary 2026 Architecture  
 **Last Updated**: January 2026  
 **Maintained by**: [MeridianAlgo](https://github.com/MeridianAlgo)
