@@ -1,6 +1,6 @@
 # Meridian.AI Documentation Index
 
-**Version 1.0.0 (Production)** | [GitHub](https://github.com/MeridianAlgo/AraAI) | [Hugging Face](https://huggingface.co/meridianal/ARA.AI)
+**Version 1.2.0 (Production)** | [GitHub](https://github.com/MeridianAlgo/AraAI) | [Hugging Face](https://huggingface.co/meridianal/ARA.AI)
 
 ---
 
@@ -9,6 +9,7 @@
 | Document | Description |
 |----------|-------------|
 | [Quick Start](QUICK_START.md) | Install, download models, run a prediction — 5 minutes |
+| [FAQ](FAQ.md) | Common questions and troubleshooting |
 | [README](../README.md) | Project overview, architecture summary, training pipeline |
 
 ## Model reference

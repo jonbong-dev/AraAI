@@ -4,6 +4,21 @@ All notable changes to Meridian.AI are documented here, from the first commit to
 
 ---
 
+## [v1.2.1] — 2026-07-21 — cleanup and documentation
+
+- Removed dead code from `meridianalgo/__init__.py`: the `quick_predict` entry
+  point imported a `.core` module that does not exist, and `check_gpu_support`
+  called `GPUManager.detect_gpu_vendor()` unbound (it needs an instance) — now
+  fixed. `VERSION_INFO["features"]` described a legacy ensemble that the package
+  no longer ships; it now reflects the actual MeridianModel transformer.
+- Deleted `scripts/clean_workflow_runs.py`, an unused maintenance helper not
+  wired into any workflow.
+- Docs: added [FAQ & Troubleshooting](FAQ.md); reformatted the README Quick Start
+  into numbered steps; corrected stale version references (badge, checkpoint
+  format `6.0.1` → `7.0.0`, doc index `1.0.0` → `1.2.x`).
+
+---
+
 ## [v1.2.0] — 2026-06-12 — v7 model format, forex data-leak retraction, honest benchmarking
 
 ### The forex edge was an artifact — retracted

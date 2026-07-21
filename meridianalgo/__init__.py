@@ -1,23 +1,17 @@
 """
-MeridianAlgo - Advanced AI Stock Analysis Package
-Enhanced with Ara AI's ensemble ML system, intelligent caching, and multi-GPU support
+Meridian.AI - Real-time financial prediction engine.
 
-This package provides:
-- Ensemble ML models (Random Forest + Gradient Boosting + LSTM)
-- Multi-vendor GPU acceleration (NVIDIA, AMD, Intel, Apple)
-- Intelligent prediction caching with accuracy tracking
-- Real-time market data integration
-- Advanced technical indicators
-- Automated model validation and learning
-
-Version: 1.1.0 (Production)
+A compact transformer (MeridianModel: GQA + MoE + optional Mamba SSM) that
+forecasts next-day price movement and a direction signal for stocks and forex
+from 44 technical indicators. Checkpoints retrain hourly via GitHub Actions and
+publish to Hugging Face (meridianal/ARA.AI).
 """
 
 # Product / package release version. This is distinct from the checkpoint
 # architecture version (MODEL_VERSION / _MIN_LOADABLE in large_torch_model.py),
 # which gates loadable checkpoint formats (7.x since v1.2.0). v1.0.0 was the
 # first production release; v1.2.0 ships the v7 checkpoint format.
-__version__ = "1.2.0"
+__version__ = "1.2.1"
 __author__ = "MeridianAlgo Team"
 __email__ = "support@meridianalgo.com"
 __license__ = "MIT"
@@ -28,17 +22,13 @@ __license__ = "MIT"
 VERSION_INFO = {
     "version": __version__,
     "features": [
-        "ULTIMATE ML System (8 Models: XGBoost, LightGBM, Random Forest, etc.)",
-        "Realistic Stock Predictions (±5% daily bounds)",
-        "Advanced Financial Health Analysis (A+ to F grades)",
-        "AI-Powered Sentiment Analysis (Hugging Face RoBERTa)",
-        "Comprehensive Sector Detection (Technology, Finance, etc.)",
-        "Multi-GPU Support (NVIDIA/AMD/Intel/Apple)",
-        "Intelligent Prediction Caching",
-        "Real-time Market Data Integration",
-        "44 Advanced Technical Indicators",
-        "Performance Monitoring & Optimization",
-        "Automated Model Training & Validation",
+        "MeridianModel transformer (Grouped Query Attention + Mixture of Experts)",
+        "Next-day price forecast and direction signal in one forward pass",
+        "44 scale-invariant technical indicators over a 30-step window",
+        "Stock and forex prediction APIs (forex trained with a 1-day embargo)",
+        "Hourly retraining via GitHub Actions, checkpoints published to Hugging Face",
+        "CPU-first; optional GPU acceleration (NVIDIA/AMD/Intel/Apple)",
+        "Sanity gate that blocks degenerate checkpoints from publishing",
     ],
     "gpu_support": ["NVIDIA CUDA", "AMD ROCm/DirectML", "Intel XPU", "Apple MPS"],
     "python_versions": ["3.9+", "3.10+", "3.11+", "3.12+"],
@@ -53,19 +43,9 @@ def check_gpu_support():
     try:
         from .utils import GPUManager
 
-        return GPUManager.detect_gpu_vendor()
+        return GPUManager().detect_gpu_vendor()
     except Exception:
         return "unknown"
-
-
-def quick_predict(*args, **kwargs):
-    try:
-        from .core import MeridianAI
-
-        ara = MeridianAI()
-        return ara.predict(*args, **kwargs)
-    except Exception:
-        return {"error": "core predictor unavailable"}
 
 
 def analyze_accuracy(symbol=None):
@@ -84,6 +64,5 @@ __all__ = [
     "VERSION_INFO",
     "get_version_info",
     "check_gpu_support",
-    "quick_predict",
     "analyze_accuracy",
 ]

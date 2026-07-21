@@ -4,7 +4,7 @@
 
 ![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
-![Version](https://img.shields.io/badge/version-1.1.0-green.svg)
+![Version](https://img.shields.io/badge/version-1.2.0-green.svg)
 ![Status](https://img.shields.io/badge/status-Production-success.svg)
 [![Forex Training](https://github.com/MeridianAlgo/AraAI/actions/workflows/forex.yml/badge.svg)](https://github.com/MeridianAlgo/AraAI/actions/workflows/forex.yml)
 [![Stock Training](https://github.com/MeridianAlgo/AraAI/actions/workflows/stocks.yml/badge.svg)](https://github.com/MeridianAlgo/AraAI/actions/workflows/stocks.yml)
@@ -94,18 +94,30 @@ Neither model is a multi-day or week-ahead forecaster. Recursive multi-step fore
 
 ## Quick Start
 
-Clone the repository and install the dependencies.
+**Requirements:** Python 3.9+ and an internet connection. No GPU and no training required — predictions download a ready-made checkpoint from Hugging Face.
+
+**1. Clone the repository.**
 
 ```bash
 git clone https://github.com/MeridianAlgo/AraAI.git
 cd AraAI
+```
 
+**2. Create a virtual environment.**
+
+```bash
 python -m venv venv
 source venv/bin/activate  # on Windows use: venv\Scripts\activate
+```
 
+**3. Install the dependencies.**
+
+```bash
 pip install torch --index-url https://download.pytorch.org/whl/cpu
 pip install -r requirements.txt
 ```
+
+**4. Run a prediction** using one of the snippets below.
 
 ### Predict a stock
 
@@ -194,7 +206,7 @@ Every checkpoint is a single `.pt` file that holds both the weights and enough c
 | `model_state_dict` | `dict` | The PyTorch model weights |
 | `model_type` | `str` | Either `stock` or `forex` |
 | `architecture` | `str` | `MeridianModel-2026` |
-| `version` | `str` | The checkpoint architecture version, currently `6.0.1`. This is the model-format revision used to gate loadable checkpoints; it is intentionally separate from the v1.0.0 product release that ships it. |
+| `version` | `str` | The checkpoint architecture version, currently `7.0.0`. This is the model-format revision used to gate loadable checkpoints; it is intentionally separate from the product release (`1.2.0`) that ships it. |
 | `input_size` | `int` | `44`, the feature count |
 | `seq_len` | `int` | `30`, the lookback window |
 | `dim` | `int` | Hidden dimension |
@@ -210,7 +222,7 @@ Every checkpoint is a single `.pt` file that holds both the weights and enough c
 | `scaler_std` | `Tensor` | Standard deviation used to normalize features |
 | `metadata` | `dict` | Best validation loss, direction accuracy, target bounds, and training history |
 
-The loader only accepts checkpoints at version 6.0 or newer. The v6.0 architecture is deliberately smaller than the v5.x networks, so their state dictionaries are incompatible; older checkpoints are skipped, and the previous v5.x models are archived under `legacy/` on Hugging Face for reference only.
+The loader only accepts checkpoints at version 7.0 or newer. The v7 input pipeline changed the feature layout (a v6 checkpoint would silently mis-read v7 inputs), so older checkpoints are skipped and the previous v5.x/v6.x models are archived under `legacy/` on Hugging Face for reference only.
 
 ## Project Structure
 
@@ -230,7 +242,6 @@ scripts/
   push_to_hf.py            Uploads checkpoints to Hugging Face
   sanity_check_model.py    Post-training gate that blocks degenerate models from publishing
   migrate_hf_legacy.py     Moves older checkpoints into a legacy folder on Hugging Face
-  clean_workflow_runs.py   Maintenance helper for old GitHub Actions runs
 .github/workflows/
   stocks.yml               Hourly stock training at minute 00
   forex.yml                Hourly forex training at minute 30
@@ -242,6 +253,16 @@ tests/
   test_directional_signal.py      Direction accuracy on real market data
   test_predict_denormalization.py Verifies predictions are scaled back correctly
 ```
+
+## Documentation
+
+Full documentation lives in [docs/](docs/INDEX.md):
+
+- [Quick Start](docs/QUICK_START.md) — install and run a prediction in 5 minutes
+- [FAQ & Troubleshooting](docs/FAQ.md) — common questions and fixes
+- [Model Card](docs/MODEL_CARD.md) and [Architecture](docs/ARCHITECTURE.md) — model internals
+- [Technical Indicators](docs/INDICATORS.md) and [Loss Functions](docs/LOSS_FUNCTIONS.md) — feature and objective details
+- [Training Guide](docs/TRAINING.md) — data pipeline, schedule, and CI structure
 
 ## Version History
 
