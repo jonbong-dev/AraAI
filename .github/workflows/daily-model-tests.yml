@@ -316,8 +316,8 @@ jobs:
         id: summary
         run: |
           python - <<'PYEOF'
-          import os, glob, sys
-          from junitparser import JUnitXml, Failure, Error
+          import os, glob, sys, textwrap
+          from junitparser import JUnitXml, Failure, Error, Skipped
 
           files = glob.glob("all-results/**/*.xml", recursive=True)
           if not files:
@@ -326,6 +326,7 @@ jobs:
 
           total_tests = total_failures = total_errors = total_skipped = 0
           failed_cases = []
+          skipped_cases = []
 
           for f in sorted(files):
               xml = JUnitXml.fromfile(f)
@@ -348,27 +349,40 @@ jobs:
                                       f"ERROR [{suite_name}] {case.classname}.{case.name}\n"
                                       f"       {r.message}"
                                   )
-                      else:
-                          pass  # passed or skipped
+                              elif isinstance(r, Skipped):
+                                  # Counted separately, or a run where every
+                                  # checkpoint was missing reports all-green.
+                                  total_skipped += 1
+                                  skipped_cases.append(
+                                      f"SKIP  [{suite_name}] {case.classname}.{case.name}\n"
+                                      f"       {r.message}"
+                                  )
 
           passed = total_tests - total_failures - total_errors - total_skipped
           status = "PASSED" if (total_failures + total_errors) == 0 else "FAILED"
 
-          summary = f"""
-          ## Ara.AI Daily Model Test Results — {status}
+          # Dedent, or the table inherits this block's indentation and GitHub
+          # renders it as a code fence instead of a table.
+          summary = textwrap.dedent(f"""
+              ## Ara.AI Daily Model Test Results — {status}
 
-          | Metric | Count |
-          |--------|-------|
-          | Total  | {total_tests} |
-          | Passed | {passed} |
-          | Failed | {total_failures} |
-          | Errors | {total_errors} |
-          | Skipped| {total_skipped} |
-          """
+              | Metric | Count |
+              |--------|-------|
+              | Total  | {total_tests} |
+              | Passed | {passed} |
+              | Failed | {total_failures} |
+              | Errors | {total_errors} |
+              | Skipped| {total_skipped} |
+              """)
 
           if failed_cases:
               summary += "\n### Failures & Errors\n\n```\n"
               summary += "\n\n".join(failed_cases)
+              summary += "\n```\n"
+
+          if skipped_cases:
+              summary += "\n### Skipped\n\n```\n"
+              summary += "\n\n".join(skipped_cases)
               summary += "\n```\n"
 
           with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as fh:
