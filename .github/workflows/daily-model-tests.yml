@@ -412,8 +412,9 @@ jobs:
           gh label create "model-test-failure" --color "d93f0b" --description "Daily model test failed" 2>/dev/null || true
           gh label create "bug" --color "d73a4a" --description "Something isn't working" 2>/dev/null || true
 
+      # Runs on pass too: the close-on-green step below needs the issue number,
+      # and gating this on FAILED left that step permanently unreachable.
       - name: Find existing failure issue
-        if: steps.status.outputs.status == 'FAILED'
         id: find_issue
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
