@@ -1,20 +1,21 @@
 import os
 import re
+
 import requests
 import yfinance as yf
 
 # 1. Environment Secrets
-telegram_token = os.environ.get('TELEGRAM_BOT_TOKEN', '').strip()
-chat_id = os.environ.get('TELEGRAM_CHAT_ID', '').strip()
-nvidia_key = "".join(os.environ.get('NVIDIA_API_KEY', '').split())
+telegram_token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
+chat_id = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
+nvidia_key = "".join(os.environ.get("NVIDIA_API_KEY", "").split())
 
 # 2. Extract Top Tickers from predictions.csv
 top_stocks = []
-if os.path.exists('predictions.csv'):
-    with open('predictions.csv', 'r') as f:
+if os.path.exists("predictions.csv"):
+    with open("predictions.csv") as f:
         content = f.read()
-        found = re.findall(r'\b[A-Z]{2,5}\b', content)
-        ignored = {'MODEL', 'PATH', 'STOCK', 'RANK', 'DATE', 'PREDICT', 'INFO', 'SYMBOL', 'SCORE'}
+        found = re.findall(r"\b[A-Z]{2,5}\b", content)
+        ignored = {"MODEL", "PATH", "STOCK", "RANK", "DATE", "PREDICT", "INFO", "SYMBOL", "SCORE"}
         top_stocks = [t for t in found if t not in ignored][:5]
 
 if not top_stocks:
@@ -27,11 +28,13 @@ news_context = ""
 for ticker in top_stocks:
     try:
         stock = yf.Ticker(ticker)
-        news_items = stock.news[:2] if hasattr(stock, 'news') and stock.news else []
+        news_items = stock.news[:2] if hasattr(stock, "news") and stock.news else []
         if news_items:
             news_context += f"\nNews for {ticker}:\n"
             for item in news_items:
-                title = item.get('title', item.get('content', {}).get('title', 'Headline unavailable'))
+                title = item.get(
+                    "title", item.get("content", {}).get("title", "Headline unavailable")
+                )
                 news_context += f"- {title}\n"
     except Exception as e:
         news_context += f"- Could not fetch news for {ticker}: {e}\n"
@@ -43,25 +46,28 @@ if nvidia_key:
     headers = {
         "Authorization": f"Bearer {nvidia_key}",
         "Content-Type": "application/json",
-        "Accept": "application/json"
+        "Accept": "application/json",
     }
-    
+
     # Standard active NVIDIA NIM model identifier
     payload = {
         "model": "meta/llama-3.1-70b-instruct",
         "messages": [
             {"role": "system", "content": "You are a sharp financial analyst."},
-            {"role": "user", "content": f"Ara AI evaluated the market universe and ranked these as top daily performers: {stocks_str}.\n\nUsing the news headlines below, explain fundamental catalysts or market momentum driving these rankings.\n\nNews:\n{news_context}"}
+            {
+                "role": "user",
+                "content": f"Ara AI evaluated the market universe and ranked these as top daily performers: {stocks_str}.\n\nUsing the news headlines below, explain fundamental catalysts or market momentum driving these rankings.\n\nNews:\n{news_context}",
+            },
         ],
         "temperature": 0.5,
-        "max_tokens": 1024
+        "max_tokens": 1024,
     }
 
     try:
         res = requests.post(url, headers=headers, json=payload, timeout=30)
         if res.status_code == 200:
             data = res.json()
-            analysis = data['choices'][0]['message']['content'].strip()
+            analysis = data["choices"][0]["message"]["content"].strip()
         else:
             print(f"NVIDIA API Returned Status {res.status_code}: {res.text}")
             analysis = f"Market momentum currently favors {stocks_str} based on quantitative cross-sectional ranking."
@@ -81,7 +87,7 @@ message = f"📈 **Daily Quant Predictions** 📈\n\n**Top Picks:** {stocks_str}
 if telegram_token and chat_id:
     requests.post(
         f"https://api.telegram.org/bot{telegram_token}/sendMessage",
-        json={"chat_id": chat_id, "text": message, "parse_mode": "Markdown"}
+        json={"chat_id": chat_id, "text": message, "parse_mode": "Markdown"},
     )
     print("Telegram notification sent successfully.")
 else:
