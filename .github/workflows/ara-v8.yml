@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       skip_push:
-        description: 'Evaluate only, do not push to Hugging Face'
+        description: 'Evaluate only, do not push'
         type: boolean
         default: false
   pull_request:
@@ -66,7 +66,7 @@ jobs:
           print(f"{n:,} bars | {s} symbols | {d0} -> {d1}")
           PY
 
-      # Passed min-symbols 15 so the CLI parameter allows low symbol counts
+      # Bypass failure if evaluation gate reports small symbol alignment
       - name: Walk-forward backtest (gate)
         continue-on-error: true
         run: |
@@ -76,7 +76,7 @@ jobs:
             --folds 4 \
             --json-out bench_results_v8_stocks.json \
             --min-ic -1.0 \
-            --min-symbols 15 || echo "Gate bypassed"
+            --min-symbols 15 || echo "Gate check bypassed"
 
       - name: Train on all data
         run: |
@@ -96,7 +96,6 @@ jobs:
             bench_results_v8_stocks.json
           retention-days: 30
 
-      # Softened Summary check so missing bench_results_v8_stocks.json won't halt execution
       - name: Summary
         if: always()
         run: |
