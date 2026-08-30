@@ -115,7 +115,7 @@ jobs:
             --model-type v8 \
             --repo-id meridianal/ARA.AI
 
- - name: Summary
+      - name: Summary
         if: always()
         run: |
           python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
