@@ -179,7 +179,6 @@ def main():
             "BBAI",
             "BTBT",
             "NOK",
-            
         ]
         timeframes = STOCK_TIMEFRAMES
     else:
