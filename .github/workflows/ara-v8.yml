@@ -89,8 +89,8 @@ jobs:
             --db-file training.db \
             --output "$MODEL_PATH"
 
-      - name: Today's ranking
-        run: python -m ara predict --db-file training.db --model-path "$MODEL_PATH"
+- name: Today's ranking
+        run: python -m ara predict --db-file training.db --model-path "$MODEL_PATH" > predictions.csv
 
       - uses: actions/upload-artifact@v4
         with:
