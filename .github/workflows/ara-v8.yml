@@ -115,7 +115,7 @@ jobs:
             --model-type v8 \
             --repo-id meridianal/ARA.AI
 
-      - name: Summary
+ - name: Summary
         if: always()
         run: |
           python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
@@ -137,9 +137,8 @@ jobs:
           print(f"| 1-day reversal baseline IC | {m['baseline_reversal_ic']:+.4f} |")
           print(f"| total train time | {r['total_train_seconds']}s |")
           PY
-          - name: Generate AI Summary and Send to Telegram
-       # Make sure the line below STARTS with a hyphen and aligns exactly with the hyphen above it!
-        - name: Generate AI Summary and Send to Telegram
+
+      - name: Generate AI Summary and Send to Telegram
         if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && !inputs.skip_push)
         run: python scripts/send_telegram.py
         env:
