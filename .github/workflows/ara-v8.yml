@@ -138,6 +138,9 @@ jobs:
           print(f"| total train time | {r['total_train_seconds']}s |")
           PY
           - name: Generate AI Summary and Send to Telegram
+       # Make sure the line below STARTS with a hyphen and aligns exactly with the hyphen above it!
+      - name: Generate AI Summary and Send to Telegram
+        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && !inputs.skip_push)
         run: python scripts/send_telegram.py
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
