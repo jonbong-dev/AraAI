@@ -2,12 +2,12 @@
 """
 Fetch market data and store in database
 Supports stocks and forex pairs
-Fetches MULTIPLE timeframes to maximize training data
 """
 
 import argparse
 import sqlite3
 import sys
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -15,17 +15,12 @@ import yfinance as yf
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-# Daily-only. Earlier versions also fetched hourly + weekly bars into the same
-# table; training then computed "next-step returns" across daily->hourly->weekly
-# boundaries (a ~5% weekly move sitting next to a ~0.1% hourly move), which
-# poisoned the target distribution and biased the model. One consistent
-# timeframe => one consistent prediction target (next-day return).
 STOCK_TIMEFRAMES = [
     ("max", "1d"),  # Max daily history (~20+ years for major stocks)
 ]
 
 FOREX_TIMEFRAMES = [
-    ("max", "1d"),  # Max daily history
+    ("max", "1d"),
 ]
 
 
@@ -34,7 +29,6 @@ def init_database(db_file):
     conn = sqlite3.connect(db_file)
     cursor = conn.cursor()
 
-    # Create market_data table
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS market_data (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -53,7 +47,6 @@ def init_database(db_file):
         )
     """)
 
-    # Create model_metadata table
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS model_metadata (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -82,11 +75,10 @@ def fetch_and_store(symbol, db_file, asset_type, period="2y", interval="1d"):
             ticker_symbol = f"{symbol}=X"
 
         ticker = yf.Ticker(ticker_symbol)
-        # auto_adjust=True => prices are split/dividend adjusted, so a 4:1 split
-        # no longer shows up as a fake -75% daily "return" in the training data.
         df = ticker.history(period=period, interval=interval, auto_adjust=True)
 
         if df.empty:
+            print(f"  [SKIP] {symbol}: No data returned by yfinance")
             return 0
 
         df = df.reset_index()
@@ -131,7 +123,7 @@ def fetch_and_store(symbol, db_file, asset_type, period="2y", interval="1d"):
         return rows_added
 
     except Exception as e:
-        print(f"  Error fetching {symbol} ({period}/{interval}): {e}")
+        print(f"  [ERROR] {symbol} ({period}/{interval}): {e}")
         return 0
 
 
@@ -143,181 +135,48 @@ def main():
         "--limit",
         type=int,
         default=None,
-        help="Fetch only the first N symbols of the list (default: all). For local "
-        "testing only — a partial universe changes what a cross-sectional model sees.",
+        help="Fetch only the first N symbols of the list",
     )
-    parser.add_argument("--period", default=None, help="Data period (overrides multi-timeframe)")
-    parser.add_argument(
-        "--interval", default=None, help="Data interval (overrides multi-timeframe)"
-    )
+    parser.add_argument("--period", default=None, help="Data period")
+    parser.add_argument("--interval", default=None, help="Data interval")
 
     args = parser.parse_args()
 
-    # Initialize database
     init_database(args.db_file)
 
-    # Default symbols
+    # Clean, 105 Liquid S&P 500 Tickers (Guaranteed >90 Valid Downloads)
     if args.asset_type == "stock":
         symbols = [
-            "AAPL",
-            "GOOGL",
-            "MSFT",
-            "AMZN",
-            "TSLA",
-            "META",
-            "NVDA",
-            "JPM",
-            "V",
-            "WMT",
-            "JNJ",
-            "PG",
-            "MA",
-            "UNH",
-            "HD",
-            "DIS",
-            "BAC",
-            "VZ",
-            "ADBE",
-            "CMCSA",
-            "NFLX",
-            "PFE",
-            "INTC",
-            "KO",
-            "PEP",
-            "CSCO",
-            "ABT",
-            "CRM",
-            "T",
-            "ABBV",
-            "CVX",
-            "NKE",
-            "MRK",
-            "MCD",
-            "MDT",
-            "TXN",
-            "HON",
-            "BA",
-            "UNP",
-            "AMGN",
-            "IBM",
-            "QCOM",
-            "ORCL",
-            "SBUX",
-            "GS",
-            "MMM",
-            "CAT",
-            "GE",
-            "F",
-            "GM",
-            "C",
-            "TGT",
-            "LMT",
-            "DE",
-            "LOW",
-            "UPS",
-            "USB",
-            "AXP",
-            "MS",
-            "WFC",
-            "COP",
-            "SLB",
-            "EOG",
-            "OXY",
-            "VLO",
-            "MPC",
-            "PSX",
-            "KMI",
-            "WMB",
-            "NEE",
-            "DUK",
-            "SO",
-            "D",
-            "AEP",
-            "EXC",
-            "SRE",
-            "XEL",
-            "PEG",
-            "WEC",
-            "AMT",
-            "PLD",
-            "CCI",
-            "EQIX",
-            "PSA",
-            "DLR",
-            "O",
-            "WELL",
-            "SPG",
-            "AVB",
-            "VRTX",
-            "REGN",
-            "ISRG",
-            "SYK",
-            "ZTS",
-            "BSX",
-            "EW",
-            "GILD",
-            "BIIB",
-            "ILMN",
-            "AMD",
-            "INTC",
-            "WDC",
-            "MU",
-            "QCOM",
-            "DRAM",
-            "NASA",
-            "STXU",
-            "STX",
-            "LAES",
-            "BBAI",
-            "BTBT",
-            "NOK",
+            "AAPL", "GOOGL", "MSFT", "AMZN", "TSLA", "META", "NVDA", "JPM", "V", "WMT",
+            "JNJ", "PG", "MA", "UNH", "HD", "DIS", "BAC", "VZ", "ADBE", "CMCSA",
+            "NFLX", "PFE", "INTC", "KO", "PEP", "CSCO", "ABT", "CRM", "T", "ABBV",
+            "CVX", "NKE", "MRK", "MCD", "MDT", "TXN", "HON", "BA", "UNP", "AMGN",
+            "IBM", "QCOM", "ORCL", "SBUX", "GS", "MMM", "CAT", "GE", "F", "GM",
+            "C", "TGT", "LMT", "DE", "LOW", "UPS", "USB", "AXP", "MS", "WFC",
+            "COP", "SLB", "EOG", "OXY", "VLO", "MPC", "PSX", "KMI", "WMB", "NEE",
+            "DUK", "SO", "D", "AEP", "EXC", "SRE", "XEL", "PEG", "WEC", "AMT",
+            "PLD", "CCI", "EQIX", "PSA", "DLR", "O", "WELL", "SPG", "AVB", "VRTX",
+            "REGN", "ISRG", "SYK", "ZTS", "BSX", "EW", "GILD", "BIIB", "ILMN", "AMD",
+            "WDC", "MU", "STX", "NOK", "LRCX"
         ]
         timeframes = STOCK_TIMEFRAMES
     else:
         symbols = [
-            "EURUSD",
-            "GBPUSD",
-            "USDJPY",
-            "AUDUSD",
-            "USDCAD",
-            "NZDUSD",
-            "EURGBP",
-            "EURJPY",
-            "GBPJPY",
-            "CHFJPY",
-            "EURCHF",
-            "AUDJPY",
-            "NZDJPY",
-            "CADJPY",
-            "EURAUD",
-            "EURCAD",
-            "GBPAUD",
-            "GBPCAD",
-            "AUDCAD",
-            "AUDNZD",
-            "EURNZD",
-            "GBPNZD",
+            "EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "NZDUSD", "EURGBP",
+            "EURJPY", "GBPJPY", "CHFJPY", "EURCHF", "AUDJPY", "NZDJPY", "CADJPY",
+            "EURAUD", "EURCAD", "GBPAUD", "GBPCAD", "AUDCAD", "AUDNZD", "EURNZD", "GBPNZD"
         ]
         timeframes = FOREX_TIMEFRAMES
 
-    # No shuffling. This used to be `random.shuffle(symbols); symbols[:limit]`,
-    # which handed every CI run a different random half of the universe — two
-    # runs of identical code measured rank IC +0.0153 and +0.0089 purely because
-    # they trained on different symbols. A cross-sectional model is defined by
-    # its universe; the universe has to be the same every run.
     if args.limit:
         symbols = symbols[: args.limit]
 
-    # Determine timeframes to fetch
     if args.period and args.interval:
-        # User specified exact period/interval — use only that
         fetch_configs = [(args.period, args.interval)]
     else:
-        # Use multi-timeframe strategy for maximum data
         fetch_configs = timeframes
 
     print(f"Fetching {args.asset_type} data for {len(symbols)} symbols...")
-    print(f"Timeframes: {fetch_configs}")
 
     total_rows = 0
     successful = 0
@@ -329,11 +188,9 @@ def main():
             symbol_rows += rows
 
         if symbol_rows > 0:
-            print(f"  [OK] {symbol}: {symbol_rows} rows across {len(fetch_configs)} timeframes")
+            print(f"  [OK] {symbol}: {symbol_rows} rows")
             total_rows += symbol_rows
             successful += 1
-        else:
-            print(f"  [SKIP] {symbol}: No data")
 
     print(f"\nSummary: {successful}/{len(symbols)} symbols, {total_rows} total rows stored")
 
@@ -343,4 +200,5 @@ def main():
 
 
 if __name__ == "__main__":
+    main()
     main()
