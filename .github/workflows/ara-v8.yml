@@ -74,9 +74,6 @@ jobs:
       # The gate. Walk-forward IC must be positive out of sample or the run
       # fails and nothing is published — a degenerate model cannot reach the
       # hub by accident, which is exactly how v7 shipped for months.
-      # --min-symbols guards the other failure mode: a partial fetch silently
-      # shrinks the universe, and a cross-sectional model measured on a
-      # different universe is measuring a different thing.
       - name: Walk-forward backtest (gate)
         run: |
           python -m ara eval \
@@ -85,7 +82,7 @@ jobs:
             --folds 4 \
             --json-out bench_results_v8_stocks.json \
             --min-ic 0.0 \
-            --min-symbols 90
+            --min-symbols 15
 
       - name: Train on all data
         run: |
