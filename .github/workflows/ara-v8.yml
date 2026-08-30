@@ -89,7 +89,7 @@ jobs:
             --db-file training.db \
             --output "$MODEL_PATH"
 
-- name: Today's ranking
+      - name: Today's ranking
         run: python -m ara predict --db-file training.db --model-path "$MODEL_PATH" > predictions.csv
 
       - uses: actions/upload-artifact@v4
@@ -100,16 +100,6 @@ jobs:
             models/ara_v8_stocks.json
             bench_results_v8_stocks.json
           retention-days: 30
-
-      - name: Push to Hugging Face
-        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && !inputs.skip_push)
-        env:
-          HF_TOKEN: ${{ secrets.HF_TOKEN }}
-        run: |
-          python scripts/push_to_hf.py \
-            --model-path "$MODEL_PATH" \
-            --model-type v8 \
-            --repo-id meridianal/ARA.AI
 
       - name: Summary
         if: always()
