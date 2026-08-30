@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Fetch market data and store in database
-Supports stocks and forex pairs
+Fetch market data and store in SQLite database.
+Uses yf.download batching with multi-threading to prevent Yahoo Finance IP rate limits in CI runners.
 """
 
 import argparse
@@ -15,7 +15,7 @@ import yfinance as yf
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 STOCK_TIMEFRAMES = [
-    ("max", "1d"),  # Max daily history (~20+ years for major stocks)
+    ("max", "1d"),
 ]
 
 FOREX_TIMEFRAMES = [
@@ -24,7 +24,7 @@ FOREX_TIMEFRAMES = [
 
 
 def init_database(db_file):
-    """Initialize database with required tables"""
+    """Initialize database schema if it doesn't exist."""
     conn = sqlite3.connect(db_file)
     cursor = conn.cursor()
 
@@ -66,37 +66,65 @@ def init_database(db_file):
     conn.close()
 
 
-def fetch_and_store(symbol, db_file, asset_type, period="2y", interval="1d"):
-    """Fetch data for a symbol and store in database"""
+def fetch_and_store_batch(symbols, db_file, asset_type, period="max", interval="1d"):
+    """Fetch all symbols in parallel via yf.download to bypass rate-limiting."""
+    formatted_symbols = [
+        f"{s}=X" if (asset_type == "forex" and not s.endswith("=X")) else s
+        for s in symbols
+    ]
+
+    print(f"Batch fetching {len(formatted_symbols)} {asset_type} symbols via yfinance...")
     try:
-        ticker_symbol = symbol
-        if asset_type == "forex" and not symbol.endswith("=X"):
-            ticker_symbol = f"{symbol}=X"
+        data = yf.download(
+            tickers=formatted_symbols,
+            period=period,
+            interval=interval,
+            group_by="ticker",
+            auto_adjust=True,
+            threads=True,
+            progress=False,
+        )
+    except Exception as e:
+        print(f"Error executing batch download: {e}")
+        return 0, 0
 
-        ticker = yf.Ticker(ticker_symbol)
-        df = ticker.history(period=period, interval=interval, auto_adjust=True)
+    conn = sqlite3.connect(db_file)
+    cursor = conn.cursor()
 
-        if df.empty:
-            print(f"  [SKIP] {symbol}: No data returned by yfinance")
-            return 0
+    total_rows = 0
+    successful = 0
+    fetch_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        df = df.reset_index()
-        date_col = "Date" if "Date" in df.columns else "Datetime"
+    for raw_symbol, ticker_symbol in zip(symbols, formatted_symbols):
+        try:
+            if len(formatted_symbols) == 1:
+                df = data.copy()
+            else:
+                if ticker_symbol not in data.columns.levels[0]:
+                    print(f"  [SKIP] {raw_symbol}: Not returned by Yahoo Finance")
+                    continue
+                df = data[ticker_symbol].dropna(how="all").copy()
 
-        conn = sqlite3.connect(db_file)
-        cursor = conn.cursor()
+            if df.empty:
+                print(f"  [SKIP] {raw_symbol}: Dataset empty")
+                continue
 
-        rows_added = 0
-        for _, row in df.iterrows():
-            try:
+            df = df.reset_index()
+            date_col = "Date" if "Date" in df.columns else "Datetime"
+
+            rows_added = 0
+            for _, row in df.iterrows():
+                if str(row["Close"]) == "nan":
+                    continue
+
                 cursor.execute(
                     """
                     INSERT OR REPLACE INTO market_data
                     (symbol, date, open, high, low, close, volume, asset_type, timeframe, interval, fetch_date)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
+                    """,
                     (
-                        ticker_symbol if asset_type == "forex" else symbol,
+                        raw_symbol,
                         (
                             row[date_col].strftime("%Y-%m-%d %H:%M:%S")
                             if hasattr(row[date_col], "strftime")
@@ -110,20 +138,22 @@ def fetch_and_store(symbol, db_file, asset_type, period="2y", interval="1d"):
                         asset_type,
                         period,
                         interval,
-                        datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        fetch_time,
                     ),
                 )
                 rows_added += 1
-            except sqlite3.IntegrityError:
-                pass
 
-        conn.commit()
-        conn.close()
-        return rows_added
+            if rows_added > 0:
+                total_rows += rows_added
+                successful += 1
+                print(f"  [OK] {raw_symbol}: {rows_added} rows")
 
-    except Exception as e:
-        print(f"  [ERROR] {symbol} ({period}/{interval}): {e}")
-        return 0
+        except Exception as e:
+            print(f"  [ERROR] {raw_symbol}: {e}")
+
+    conn.commit()
+    conn.close()
+    return total_rows, successful
 
 
 def main():
@@ -143,174 +173,45 @@ def main():
 
     init_database(args.db_file)
 
-    # Clean, 105 Liquid S&P 500 Tickers (Guaranteed >90 Valid Downloads)
     if args.asset_type == "stock":
         symbols = [
-            "AAPL",
-            "GOOGL",
-            "MSFT",
-            "AMZN",
-            "TSLA",
-            "META",
-            "NVDA",
-            "JPM",
-            "V",
-            "WMT",
-            "JNJ",
-            "PG",
-            "MA",
-            "UNH",
-            "HD",
-            "DIS",
-            "BAC",
-            "VZ",
-            "ADBE",
-            "CMCSA",
-            "NFLX",
-            "PFE",
-            "INTC",
-            "KO",
-            "PEP",
-            "CSCO",
-            "ABT",
-            "CRM",
-            "T",
-            "ABBV",
-            "CVX",
-            "NKE",
-            "MRK",
-            "MCD",
-            "MDT",
-            "TXN",
-            "HON",
-            "BA",
-            "UNP",
-            "AMGN",
-            "IBM",
-            "QCOM",
-            "ORCL",
-            "SBUX",
-            "GS",
-            "MMM",
-            "CAT",
-            "GE",
-            "F",
-            "GM",
-            "C",
-            "TGT",
-            "LMT",
-            "DE",
-            "LOW",
-            "UPS",
-            "USB",
-            "AXP",
-            "MS",
-            "WFC",
-            "COP",
-            "SLB",
-            "EOG",
-            "OXY",
-            "VLO",
-            "MPC",
-            "PSX",
-            "KMI",
-            "WMB",
-            "NEE",
-            "DUK",
-            "SO",
-            "D",
-            "AEP",
-            "EXC",
-            "SRE",
-            "XEL",
-            "PEG",
-            "WEC",
-            "AMT",
-            "PLD",
-            "CCI",
-            "EQIX",
-            "PSA",
-            "DLR",
-            "O",
-            "WELL",
-            "SPG",
-            "AVB",
-            "VRTX",
-            "REGN",
-            "ISRG",
-            "SYK",
-            "ZTS",
-            "BSX",
-            "EW",
-            "GILD",
-            "BIIB",
-            "ILMN",
-            "AMD",
-            "WDC",
-            "MU",
-            "STX",
-            "NOK",
-            "LRCX",
+            "AAPL", "GOOGL", "MSFT", "AMZN", "TSLA", "META", "NVDA", "JPM", "V", "WMT",
+            "JNJ", "PG", "MA", "UNH", "HD", "DIS", "BAC", "VZ", "ADBE", "CMCSA",
+            "NFLX", "PFE", "INTC", "KO", "PEP", "CSCO", "ABT", "CRM", "T", "ABBV",
+            "CVX", "NKE", "MRK", "MCD", "MDT", "TXN", "HON", "BA", "UNP", "AMGN",
+            "IBM", "QCOM", "ORCL", "SBUX", "GS", "MMM", "CAT", "GE", "F", "GM",
+            "C", "TGT", "LMT", "DE", "LOW", "UPS", "USB", "AXP", "MS", "WFC",
+            "COP", "SLB", "EOG", "OXY", "VLO", "MPC", "PSX", "KMI", "WMB", "NEE",
+            "DUK", "SO", "D", "AEP", "EXC", "SRE", "XEL", "PEG", "WEC", "AMT",
+            "PLD", "CCI", "EQIX", "PSA", "DLR", "O", "WELL", "SPG", "AVB", "VRTX",
+            "REGN", "ISRG", "SYK", "ZTS", "BSX", "EW", "GILD", "BIIB", "ILMN", "AMD",
+            "WDC", "MU", "STX", "NOK", "LRCX"
         ]
         timeframes = STOCK_TIMEFRAMES
     else:
         symbols = [
-            "EURUSD",
-            "GBPUSD",
-            "USDJPY",
-            "AUDUSD",
-            "USDCAD",
-            "NZDUSD",
-            "EURGBP",
-            "EURJPY",
-            "GBPJPY",
-            "CHFJPY",
-            "EURCHF",
-            "AUDJPY",
-            "NZDJPY",
-            "CADJPY",
-            "EURAUD",
-            "EURCAD",
-            "GBPAUD",
-            "GBPCAD",
-            "AUDCAD",
-            "AUDNZD",
-            "EURNZD",
-            "GBPNZD",
+            "EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "USDCAD", "NZDUSD", "EURGBP",
+            "EURJPY", "GBPJPY", "CHFJPY", "EURCHF", "AUDJPY", "NZDJPY", "CADJPY",
+            "EURAUD", "EURCAD", "GBPAUD", "GBPCAD", "AUDCAD", "AUDNZD", "EURNZD", "GBPNZD"
         ]
         timeframes = FOREX_TIMEFRAMES
 
     if args.limit:
         symbols = symbols[: args.limit]
 
-    if args.period and args.interval:
-        fetch_configs = [(args.period, args.interval)]
-    else:
-        fetch_configs = timeframes
+    period = args.period if args.period else timeframes[0][0]
+    interval = args.interval if args.interval else timeframes[0][1]
 
-    print(f"Fetching {args.asset_type} data for {len(symbols)} symbols...")
-
-    total_rows = 0
-    successful = 0
-
-    for symbol in symbols:
-        symbol_rows = 0
-        for period, interval in fetch_configs:
-            rows = fetch_and_store(symbol, args.db_file, args.asset_type, period, interval)
-            symbol_rows += rows
-
-        if symbol_rows > 0:
-            print(f"  [OK] {symbol}: {symbol_rows} rows")
-            total_rows += symbol_rows
-            successful += 1
+    total_rows, successful = fetch_and_store_batch(
+        symbols, args.db_file, args.asset_type, period, interval
+    )
 
     print(f"\nSummary: {successful}/{len(symbols)} symbols, {total_rows} total rows stored")
 
     if total_rows == 0:
-        print("[WARNING] No data was stored")
+        print("[WARNING] No data stored")
         sys.exit(0)
 
 
 if __name__ == "__main__":
-    main()
     main()
