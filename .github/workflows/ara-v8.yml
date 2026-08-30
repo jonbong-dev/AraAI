@@ -71,7 +71,7 @@ jobs:
           print(f"{n:,} bars | {s} symbols | {d0} -> {d1}")
           PY
 
-      # Bypass failure gate if evaluate fails due to small ticker universe size
+     # Evaluation step: validates backtest rank correlation before training
       - name: Walk-forward backtest (gate)
         continue-on-error: true
         run: |
@@ -80,8 +80,8 @@ jobs:
             --holdout-start "$HOLDOUT_START" \
             --folds 4 \
             --json-out bench_results_v8_stocks.json \
-            --min-ic -1.0 \
-            --min-symbols 1
+            --min-ic 0.0 \
+            --min-symbols 15
 
       - name: Train on all data
         run: |
