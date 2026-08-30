@@ -137,3 +137,9 @@ jobs:
           print(f"| 1-day reversal baseline IC | {m['baseline_reversal_ic']:+.4f} |")
           print(f"| total train time | {r['total_train_seconds']}s |")
           PY
+          - name: Generate AI Summary and Send to Telegram
+        run: python scripts/send_telegram.py
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
