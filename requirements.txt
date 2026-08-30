@@ -12,5 +12,9 @@ yfinance>=0.2.0
 huggingface_hub>=0.19.0
 python-dotenv>=1.0.0
 
+# LLM + Telegram Integration
+openai>=1.0.0
+requests>=2.28.0
+
 # Tests
 pytest>=7.0
