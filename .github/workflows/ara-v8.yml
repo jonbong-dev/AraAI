@@ -139,10 +139,10 @@ jobs:
           PY
           - name: Generate AI Summary and Send to Telegram
        # Make sure the line below STARTS with a hyphen and aligns exactly with the hyphen above it!
-      - name: Generate AI Summary and Send to Telegram
+        - name: Generate AI Summary and Send to Telegram
         if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && !inputs.skip_push)
         run: python scripts/send_telegram.py
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
