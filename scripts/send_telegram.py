@@ -6,12 +6,15 @@ import yfinance as yf
 
 # 1. Environment Secrets & Cleaning
 telegram_token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
-chat_id = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
+raw_chat_id = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
 raw_nvidia_key = os.environ.get("NVIDIA_API_KEY", "")
 nvidia_key = "".join(raw_nvidia_key.split())
 
+# Parse comma-separated Chat IDs into a list of clean strings
+chat_ids = [c.strip() for c in raw_chat_id.split(",") if c.strip()]
+
 print(f"Telegram Bot Token present: {bool(telegram_token)}")
-print(f"Telegram Chat ID present: {bool(chat_id)}")
+print(f"Telegram Chat IDs found: {len(chat_ids)} ({chat_ids})")
 
 # 2. Extract Top Tickers from predictions.csv
 top_stocks = []
@@ -54,7 +57,8 @@ if nvidia_key:
     }
 
     payload = {
-        "model": "meta/llama-3.1-70b-instruct",
+        # Updated to current non-deprecated Llama model
+        "model": "meta/llama-3.3-70b-instruct",
         "messages": [
             {"role": "system", "content": "You are a sharp financial analyst."},
             {
@@ -83,18 +87,29 @@ else:
 if "</think>" in analysis:
     analysis = analysis.split("</think>")[-1].strip()
 
-# 5. Send Telegram Notification (Plain Text to Avoid Parse Failures)
+# 5. Send Telegram Notification to Each Chat ID
 message = (
     f"📈 DAILY QUANT PREDICTIONS 📈\n\n"
     f"Top Picks: {stocks_str}\n\n"
     f"AI Market Analysis:\n{analysis}"
 )
 
-if telegram_token and chat_id:
+if telegram_token and chat_ids:
     tg_url = f"https://api.telegram.org/bot{telegram_token}/sendMessage"
-    payload = {"chat_id": chat_id, "text": message}
-    response = requests.post(tg_url, json=payload, timeout=15)
-    print(f"Telegram API Status Code: {response.status_code}")
+    
+    for cid in chat_ids:
+        payload = {"chat_id": cid, "text": message}
+        try:
+            response = requests.post(tg_url, json=payload, timeout=15)
+            res_data = response.json()
+            if res_data.get("ok"):
+                print(f"Successfully sent Telegram message to Chat ID: {cid}")
+            else:
+                print(f"Failed sending to Chat ID {cid}: {res_data.get('description')}")
+        except Exception as e:
+            print(f"Error sending to Chat ID {cid}: {e}")
+else:
+    print("Telegram token or Chat IDs missing. Message sending skipped.")
     print(f"Telegram API Response: {response.text}")
 else:
     print("ERROR: TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID environment variables are empty!")
