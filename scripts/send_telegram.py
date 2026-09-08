@@ -111,5 +111,4 @@ if telegram_token and chat_ids:
 else:
     print("Telegram token or Chat IDs missing. Message sending skipped.")
     print(f"Telegram API Response: {response.text}")
-else:
     print("ERROR: TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID environment variables are empty!")
