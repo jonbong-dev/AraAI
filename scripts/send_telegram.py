@@ -96,7 +96,7 @@ message = (
 
 if telegram_token and chat_ids:
     tg_url = f"https://api.telegram.org/bot{telegram_token}/sendMessage"
-    
+
     for cid in chat_ids:
         payload = {"chat_id": cid, "text": message}
         try:
