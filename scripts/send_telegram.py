@@ -83,26 +83,34 @@ else:
 if "</think>" in analysis:
     analysis = analysis.split("</think>")[-1].strip()
 
-# 5. Send Telegram Notification to Each Chat ID
-message = (
+# 5. Send Telegram Notification (Chunked to respect Telegram 4,096 character limit)
+full_message = (
     f"📈 DAILY QUANT PREDICTIONS 📈\n\n"
     f"Top Picks: {stocks_str}\n\n"
     f"AI Market Analysis:\n{analysis}"
 )
 
-if telegram_token and chat_ids:
-    tg_url = f"https://api.telegram.org/bot{telegram_token}/sendMessage"
-
-    for cid in chat_ids:
-        payload = {"chat_id": cid, "text": message}
+def send_chunked_message(bot_token, target_chat_id, text_to_send):
+    max_length = 4000  # Leave safety margin under Telegram's 4096 cap
+    # Split text into chunks
+    chunks = [text_to_send[i:i + max_length] for i in range(0, len(text_to_send), max_length)]
+    
+    tg_url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+    
+    for chunk in chunks:
+        payload = {"chat_id": target_chat_id, "text": chunk}
         try:
             response = requests.post(tg_url, json=payload, timeout=15)
             res_data = response.json()
             if res_data.get("ok"):
-                print(f"Successfully sent Telegram message to Chat ID: {cid}")
+                print(f"Successfully sent chunk to Chat ID: {target_chat_id}")
             else:
-                print(f"Failed sending to Chat ID {cid}: {res_data.get('description')}")
+                print(f"Failed sending chunk to {target_chat_id}: {res_data.get('description')}")
         except Exception as e:
-            print(f"Error sending to Chat ID {cid}: {e}")
+            print(f"Error sending chunk to {target_chat_id}: {e}")
+
+if telegram_token and chat_ids:
+    for cid in chat_ids:
+        send_chunked_message(telegram_token, cid, full_message)
 else:
     print("Telegram token or Chat IDs missing. Message sending skipped.")
