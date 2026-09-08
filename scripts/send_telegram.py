@@ -1,5 +1,6 @@
 import os
 import re
+
 import requests
 import yfinance as yf
 from openai import OpenAI
@@ -52,10 +53,7 @@ for ticker in top_stocks:
 analysis = ""
 if nvidia_key:
     try:
-        client = OpenAI(
-            base_url="https://integrate.api.nvidia.com/v1",
-            api_key=nvidia_key
-        )
+        client = OpenAI(base_url="https://integrate.api.nvidia.com/v1", api_key=nvidia_key)
 
         completion = client.chat.completions.create(
             model="deepseek-ai/deepseek-v4-pro-0813",
@@ -71,7 +69,7 @@ if nvidia_key:
             max_tokens=2048,
             seed=42,
             extra_body={"chat_template_kwargs": {"thinking": False}},
-            stream=False
+            stream=False,
         )
 
         analysis = completion.choices[0].message.content.strip()
@@ -94,7 +92,7 @@ message = (
 
 if telegram_token and chat_ids:
     tg_url = f"https://api.telegram.org/bot{telegram_token}/sendMessage"
-    
+
     for cid in chat_ids:
         payload = {"chat_id": cid, "text": message}
         try:
