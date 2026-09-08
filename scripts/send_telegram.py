@@ -90,13 +90,14 @@ full_message = (
     f"AI Market Analysis:\n{analysis}"
 )
 
+
 def send_chunked_message(bot_token, target_chat_id, text_to_send):
     max_length = 4000  # Leave safety margin under Telegram's 4096 cap
     # Split text into chunks
-    chunks = [text_to_send[i:i + max_length] for i in range(0, len(text_to_send), max_length)]
-    
+    chunks = [text_to_send[i : i + max_length] for i in range(0, len(text_to_send), max_length)]
+
     tg_url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
-    
+
     for chunk in chunks:
         payload = {"chat_id": target_chat_id, "text": chunk}
         try:
@@ -108,6 +109,7 @@ def send_chunked_message(bot_token, target_chat_id, text_to_send):
                 print(f"Failed sending chunk to {target_chat_id}: {res_data.get('description')}")
         except Exception as e:
             print(f"Error sending chunk to {target_chat_id}: {e}")
+
 
 if telegram_token and chat_ids:
     for cid in chat_ids:
