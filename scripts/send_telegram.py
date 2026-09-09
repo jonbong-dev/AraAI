@@ -1,19 +1,16 @@
 import os
 import re
-
 import requests
 import yfinance as yf
 from openai import OpenAI
 
-# 1. Environment Secrets & Parsing
+# 1. Environment Secrets & Cleaning
 telegram_token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
 raw_chat_id = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
 raw_nvidia_key = os.environ.get("NVIDIA_API_KEY", "")
+nvidia_key = "".join(raw_nvidia_key.split())
 
-# Clean any stray spaces or quotes from the key
-nvidia_key = raw_nvidia_key.strip().strip('"').strip("'")
-
-# Parse comma-separated Chat IDs: ['485686834', '936673392']
+# Parse comma-separated Chat IDs into a list of clean strings
 chat_ids = [c.strip() for c in raw_chat_id.split(",") if c.strip()]
 
 print(f"Telegram Bot Token present: {bool(telegram_token)}")
@@ -53,7 +50,10 @@ for ticker in top_stocks:
 analysis = ""
 if nvidia_key:
     try:
-        client = OpenAI(base_url="https://integrate.api.nvidia.com/v1", api_key=nvidia_key)
+        client = OpenAI(
+            base_url="https://integrate.api.nvidia.com/v1",
+            api_key=nvidia_key
+        )
 
         completion = client.chat.completions.create(
             model="deepseek-ai/deepseek-v4-pro-0813",
@@ -69,7 +69,7 @@ if nvidia_key:
             max_tokens=2048,
             seed=42,
             extra_body={"chat_template_kwargs": {"thinking": False}},
-            stream=False,
+            stream=False
         )
 
         analysis = completion.choices[0].message.content.strip()
@@ -83,36 +83,26 @@ else:
 if "</think>" in analysis:
     analysis = analysis.split("</think>")[-1].strip()
 
-# 5. Send Telegram Notification (Chunked to respect Telegram 4,096 character limit)
-full_message = (
+# 5. Send Telegram Notification to Each Chat ID
+message = (
     f"📈 DAILY QUANT PREDICTIONS 📈\n\n"
     f"Top Picks: {stocks_str}\n\n"
     f"AI Market Analysis:\n{analysis}"
 )
 
-
-def send_chunked_message(bot_token, target_chat_id, text_to_send):
-    max_length = 4000  # Leave safety margin under Telegram's 4096 cap
-    # Split text into chunks
-    chunks = [text_to_send[i : i + max_length] for i in range(0, len(text_to_send), max_length)]
-
-    tg_url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
-
-    for chunk in chunks:
-        payload = {"chat_id": target_chat_id, "text": chunk}
+if telegram_token and chat_ids:
+    tg_url = f"https://api.telegram.org/bot{telegram_token}/sendMessage"
+    
+    for cid in chat_ids:
+        payload = {"chat_id": cid, "text": message}
         try:
             response = requests.post(tg_url, json=payload, timeout=15)
             res_data = response.json()
             if res_data.get("ok"):
-                print(f"Successfully sent chunk to Chat ID: {target_chat_id}")
+                print(f"Successfully sent Telegram message to Chat ID: {cid}")
             else:
-                print(f"Failed sending chunk to {target_chat_id}: {res_data.get('description')}")
+                print(f"Failed sending to Chat ID {cid}: {res_data.get('description')}")
         except Exception as e:
-            print(f"Error sending chunk to {target_chat_id}: {e}")
-
-
-if telegram_token and chat_ids:
-    for cid in chat_ids:
-        send_chunked_message(telegram_token, cid, full_message)
+            print(f"Error sending to Chat ID {cid}: {e}")
 else:
     print("Telegram token or Chat IDs missing. Message sending skipped.")
