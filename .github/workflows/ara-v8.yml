@@ -2,7 +2,9 @@ name: Ara.AI v8
 
 on:
   schedule:
-    - cron: '30 22 * * 1-5'
+    # 00:15 UTC = 8:15 AM Singapore Time (Mon-Fri)
+    # 12:15 UTC = 8:15 PM Singapore Time (Mon-Fri)
+    - cron: '15 0,12 * * 1-5'
   workflow_dispatch:
     inputs:
       skip_push:
@@ -43,7 +45,9 @@ jobs:
           cache: pip
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: |
+          pip install -r requirements.txt
+          pip install openai requests yfinance
 
       - name: Unit tests
         run: python -m pytest tests/ -q
