@@ -1,21 +1,22 @@
 import os
 import re
-
 import requests
 import yfinance as yf
 from openai import OpenAI
 
-# 1. Environment Secrets & Cleaning
+# 1. Environment Secrets & Parsing
 telegram_token = os.environ.get("TELEGRAM_BOT_TOKEN", "").strip()
 raw_chat_id = os.environ.get("TELEGRAM_CHAT_ID", "").strip()
 raw_nvidia_key = os.environ.get("NVIDIA_API_KEY", "")
-nvidia_key = "".join(raw_nvidia_key.split())
 
-# Parse comma-separated Chat IDs into a list of clean strings
+# Clean stray quotes/spaces
+nvidia_key = raw_nvidia_key.strip().strip('"').strip("'")
+
+# Parse comma-separated Chat IDs: ['485686834', '936673392']
 chat_ids = [c.strip() for c in raw_chat_id.split(",") if c.strip()]
 
 print(f"Telegram Bot Token present: {bool(telegram_token)}")
-print(f"Telegram Chat IDs found: {len(chat_ids)} ({chat_ids})")
+print(f"Telegram Chat IDs found: {len(chat_ids)}")
 
 # 2. Extract Top Tickers from predictions.csv
 top_stocks = []
@@ -31,7 +32,7 @@ if not top_stocks:
 
 stocks_str = ", ".join(top_stocks)
 
-# 3. Pull News via yfinance
+# 3. Pull News via yfinance (Capped to 1,500 characters max)
 news_context = ""
 for ticker in top_stocks:
     try:
@@ -47,27 +48,36 @@ for ticker in top_stocks:
     except Exception as e:
         news_context += f"- Could not fetch news for {ticker}: {e}\n"
 
-# 4. Generate Analysis via NVIDIA API using OpenAI SDK
+# Prevent news payload from bloating the LLM prompt
+news_context = news_context[:1500]
+
+# 4. Generate Analysis via NVIDIA API
 analysis = ""
 if nvidia_key:
     try:
-        client = OpenAI(base_url="https://integrate.api.nvidia.com/v1", api_key=nvidia_key)
+        client = OpenAI(
+            base_url="https://integrate.api.nvidia.com/v1",
+            api_key=nvidia_key
+        )
 
         completion = client.chat.completions.create(
             model="deepseek-ai/deepseek-v4-pro-0813",
             messages=[
-                {"role": "system", "content": "You are a sharp financial analyst."},
+                {
+                    "role": "system",
+                    "content": "You are a sharp financial analyst. Provide a brief, high-impact market summary under 1500 characters."
+                },
                 {
                     "role": "user",
-                    "content": f"Ara AI evaluated the market universe and ranked these as top daily performers: {stocks_str}.\n\nUsing the news headlines below, explain fundamental catalysts or market momentum driving these rankings.\n\nNews:\n{news_context}",
+                    "content": f"Ara AI evaluated the market universe and ranked these as top daily performers: {stocks_str}.\n\nUsing the news headlines below, explain fundamental catalysts driving these rankings in 2 brief paragraphs.\n\nNews:\n{news_context}",
                 },
             ],
-            temperature=1,
+            temperature=0.7,
             top_p=0.95,
-            max_tokens=2048,
+            max_tokens=500,  # Strict limit on response size
             seed=42,
             extra_body={"chat_template_kwargs": {"thinking": False}},
-            stream=False,
+            stream=False
         )
 
         analysis = completion.choices[0].message.content.strip()
@@ -78,29 +88,43 @@ if nvidia_key:
 else:
     analysis = f"Quantitative rankings generated for top holdings: {stocks_str}."
 
+# Clean out any DeepSeek thinking/reasoning blocks
 if "</think>" in analysis:
     analysis = analysis.split("</think>")[-1].strip()
 
-# 5. Send Telegram Notification to Each Chat ID
-message = (
-    f"📈 DAILY QUANT PREDICTIONS 📈\n\n"
-    f"Top Picks: {stocks_str}\n\n"
-    f"AI Market Analysis:\n{analysis}"
-)
+# 5. Safe Multi-Part Sending Function
+def send_safe_telegram_messages(bot_token, target_chat_id, header, body_text):
+    tg_url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+    
+    # If total length is under 3800 chars, send in one message
+    full_text = f"{header}\n\n{body_text}"
+    if len(full_text) <= 3800:
+        messages_to_send = [full_text]
+    else:
+        # Send header/picks first, then chunk the analysis
+        messages_to_send = [header]
+        chunk_size = 3500
+        for i in range(0, len(body_text), chunk_size):
+            messages_to_send.append(body_text[i:i+chunk_size])
 
-if telegram_token and chat_ids:
-    tg_url = f"https://api.telegram.org/bot{telegram_token}/sendMessage"
-
-    for cid in chat_ids:
-        payload = {"chat_id": cid, "text": message}
+    for idx, msg in enumerate(messages_to_send):
+        payload = {"chat_id": target_chat_id, "text": msg}
         try:
             response = requests.post(tg_url, json=payload, timeout=15)
             res_data = response.json()
             if res_data.get("ok"):
-                print(f"Successfully sent Telegram message to Chat ID: {cid}")
+                print(f"Successfully sent message part {idx+1}/{len(messages_to_send)} to Chat ID: {target_chat_id}")
             else:
-                print(f"Failed sending to Chat ID {cid}: {res_data.get('description')}")
+                print(f"Failed sending part {idx+1} to {target_chat_id}: {res_data.get('description')}")
         except Exception as e:
-            print(f"Error sending to Chat ID {cid}: {e}")
+            print(f"Error sending part {idx+1} to {target_chat_id}: {e}")
+
+# Trigger sending
+header_text = f"📈 DAILY QUANT PREDICTIONS 📈\n\nTop Picks: {stocks_str}"
+analysis_text = f"AI Market Analysis:\n{analysis}"
+
+if telegram_token and chat_ids:
+    for cid in chat_ids:
+        send_safe_telegram_messages(telegram_token, cid, header_text, analysis_text)
 else:
     print("Telegram token or Chat IDs missing. Message sending skipped.")
