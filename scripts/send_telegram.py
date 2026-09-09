@@ -1,5 +1,6 @@
 import os
 import re
+
 import requests
 import yfinance as yf
 from openai import OpenAI
@@ -55,17 +56,14 @@ news_context = news_context[:1500]
 analysis = ""
 if nvidia_key:
     try:
-        client = OpenAI(
-            base_url="https://integrate.api.nvidia.com/v1",
-            api_key=nvidia_key
-        )
+        client = OpenAI(base_url="https://integrate.api.nvidia.com/v1", api_key=nvidia_key)
 
         completion = client.chat.completions.create(
             model="deepseek-ai/deepseek-v4-pro-0813",
             messages=[
                 {
                     "role": "system",
-                    "content": "You are a sharp financial analyst. Provide a brief, high-impact market summary under 1500 characters."
+                    "content": "You are a sharp financial analyst. Provide a brief, high-impact market summary under 1500 characters.",
                 },
                 {
                     "role": "user",
@@ -77,7 +75,7 @@ if nvidia_key:
             max_tokens=500,  # Strict limit on response size
             seed=42,
             extra_body={"chat_template_kwargs": {"thinking": False}},
-            stream=False
+            stream=False,
         )
 
         analysis = completion.choices[0].message.content.strip()
@@ -92,10 +90,11 @@ else:
 if "</think>" in analysis:
     analysis = analysis.split("</think>")[-1].strip()
 
+
 # 5. Safe Multi-Part Sending Function
 def send_safe_telegram_messages(bot_token, target_chat_id, header, body_text):
     tg_url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
-    
+
     # If total length is under 3800 chars, send in one message
     full_text = f"{header}\n\n{body_text}"
     if len(full_text) <= 3800:
@@ -105,7 +104,7 @@ def send_safe_telegram_messages(bot_token, target_chat_id, header, body_text):
         messages_to_send = [header]
         chunk_size = 3500
         for i in range(0, len(body_text), chunk_size):
-            messages_to_send.append(body_text[i:i+chunk_size])
+            messages_to_send.append(body_text[i : i + chunk_size])
 
     for idx, msg in enumerate(messages_to_send):
         payload = {"chat_id": target_chat_id, "text": msg}
@@ -113,11 +112,16 @@ def send_safe_telegram_messages(bot_token, target_chat_id, header, body_text):
             response = requests.post(tg_url, json=payload, timeout=15)
             res_data = response.json()
             if res_data.get("ok"):
-                print(f"Successfully sent message part {idx+1}/{len(messages_to_send)} to Chat ID: {target_chat_id}")
+                print(
+                    f"Successfully sent message part {idx+1}/{len(messages_to_send)} to Chat ID: {target_chat_id}"
+                )
             else:
-                print(f"Failed sending part {idx+1} to {target_chat_id}: {res_data.get('description')}")
+                print(
+                    f"Failed sending part {idx+1} to {target_chat_id}: {res_data.get('description')}"
+                )
         except Exception as e:
             print(f"Error sending part {idx+1} to {target_chat_id}: {e}")
+
 
 # Trigger sending
 header_text = f"📈 DAILY QUANT PREDICTIONS 📈\n\nTop Picks: {stocks_str}"
