@@ -37,9 +37,9 @@ jobs:
     timeout-minutes: 45
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v5
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: pip
@@ -116,7 +116,7 @@ jobs:
           PY
 
       - name: Generate AI Summary and Send to Telegram
-        if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && !inputs.skip_push)
+        if: success() && inputs.skip_push != true
         run: python scripts/send_telegram.py
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
